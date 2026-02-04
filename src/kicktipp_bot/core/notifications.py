@@ -236,7 +236,7 @@ class NotificationManager:
             message = "\n".join(message_parts)
 
             headers = {
-                "X-Title": title.encode('utf-8'),
+                "X-Title": title,
                 "Content-Type": "text/plain; charset=utf-8"
             }
 
