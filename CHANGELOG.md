@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-03-30
+
+### ⚙️ Miscellaneous Tasks
+
+- **(env)** Remove comment from env example
+- **(deployment)** Remove imagePullSecrets from deployment configuration
+
+### Simplify
+
+- Remove unnecessary team name extraction changes
+
 ## [3.2.2] - 2025-12-08
 
 ### 🚀 Features
