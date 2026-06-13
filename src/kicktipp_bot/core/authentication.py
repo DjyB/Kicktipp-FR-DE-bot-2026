@@ -112,11 +112,12 @@ class Authenticator:
         logger.debug("Checking for terms and conditions dialog")
 
         # Try to find and click the accept button
+        # Increased timeout to 5s for ARM64 slower rendering
         accept_button = SeleniumUtils.safe_find_element(
             self.driver,
             By.XPATH,
             '//*[@id="qc-cmp2-ui"]/div[2]/div/button[2]',
-            timeout=3  # Short timeout since this may not exist
+            timeout=5  # ARM64 rendering is slower, increased from 3s
         )
 
         if accept_button:

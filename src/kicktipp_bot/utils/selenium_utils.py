@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 class SeleniumUtils:
     """Utility class for safe Selenium operations."""
 
-    DEFAULT_TIMEOUT = 10
+    # ARM64 systems (e.g., Orange Pi) are slower, so increase timeouts
+    DEFAULT_TIMEOUT = 20  # Increased from 10s for ARM64 compatibility
     DEFAULT_RETRY_COUNT = 3
     DEFAULT_RETRY_DELAY = 1
 
