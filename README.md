@@ -5,7 +5,7 @@ Forked from the original project by antonengelhardt (https://github.com/antoneng
 
 This script can automatically enter tips into Kicktipp based on the quotes of the bookmakers. It is written in Python and uses Selenium to interact with the website.
 
-If you are enjoying this project, consider [buying me a coffee](https://buymeacoffee.com/antonengelhardt) :)
+If you are enjoying this project, consider [a coffee for antonengelhardt](https://buymeacoffee.com/antonengelhardt) :)
 
 ## Run
 
@@ -47,7 +47,7 @@ Install Docker and run the following commands.
 
 ```bash
 # Get Image
-docker pull ghcr.io/antonengelhardt/kicktipp-bot:amd64
+docker pull ghcr.io/DjyB/Kicktipp-FR-DE-bot-2026:amd64
 
 # Run Container and set your env variables
 docker run \
