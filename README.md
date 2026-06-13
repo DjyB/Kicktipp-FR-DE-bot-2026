@@ -15,6 +15,9 @@ Copy the contents of the `.env.example` file into a new file called `.env` and f
 
 If you run the bot on Alpine Linux on ARM64, Selenium Manager may fail to download a compatible driver (`Unsupported platform/architecture combination: linux/aarch64`). This project forces the use of system-installed Chromium and Chromedriver binaries to work around that.
 
+Additionally, the bot includes memory optimizations to prevent `ReadTimeoutError` on small systems:
+
+- Chromium options include `--disable-dev-shm-usage` (prevents `/dev/shm` saturation in Docker), `--disable-gpu`, `--disable-software-rasterizer`, and `--single-process` to minimize memory footprint.
 - Ensure `chromium` and `chromium-chromedriver` are installed in the container and that the binaries are available, for example at `/usr/bin/chromium-browser` and `/usr/bin/chromedriver`.
 - If your distribution installs binaries at different paths, set `CHROMEDRIVER_PATH` in your `.env` to the full driver path.
 - The code forces `options.binary_location = '/usr/bin/chromium-browser'` and uses `Service(executable_path='/usr/bin/chromedriver')` by default; adjust if your paths differ.

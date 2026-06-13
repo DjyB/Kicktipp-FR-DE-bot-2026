@@ -44,11 +44,13 @@ class WebDriverManager:
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-dev-shm-usage")  # CRUCIAL: Prevents shared memory saturation in Docker
         chrome_options.add_argument("--disable-extensions")
         chrome_options.add_argument("--disable-application-cache")
         chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-software-rasterizer")  # Optimize for low-memory systems
         chrome_options.add_argument("--disable-setuid-sandbox")
+        chrome_options.add_argument("--single-process")  # Optional but useful on small architectures (ARM64)
 
         # Force use of local Chromium binary on systems where Selenium Manager fails
         chrome_options.binary_location = '/usr/bin/chromium-browser'
@@ -59,6 +61,12 @@ class WebDriverManager:
     def _get_default_options() -> Options:
         """Configure Chrome options for non-headless browser operation."""
         options = Options()
+        # Optimize for low-memory systems (Docker/ARM64)
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")  # CRUCIAL: Prevents shared memory saturation in Docker
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")  # Optimize for low-memory systems
+        options.add_argument("--single-process")  # Optional but useful on small architectures (ARM64)
         # Force use of local Chromium binary
         options.binary_location = '/usr/bin/chromium-browser'
         return options

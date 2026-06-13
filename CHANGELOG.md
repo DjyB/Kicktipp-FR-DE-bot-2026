@@ -15,9 +15,7 @@ All notable changes to this project will be documented in this file.
 - **(notify)** Add JBProd push notifications + existing webhook support
 - **(dev)** Add debug screenshots, tests and `.env` configuration updates
 - **(webdriver)** Force use of local Chromium/Chromedriver binaries on Alpine/ARM64 (Selenium Manager workaround). `create_driver()` now uses `Service(executable_path=...)` and sets `options.binary_location` to `/usr/bin/chromium-browser`.
-
-
-## [3.3.0] - 2026-03-30
+ - **(memory)** Optimize Chrome arguments for Docker/ARM64 (critical `--disable-dev-shm-usage`, `--single-process`, etc.) to prevent shared memory saturation and ReadTimeoutError on small systems.
 
 ### ⚙️ Miscellaneous Tasks
 
