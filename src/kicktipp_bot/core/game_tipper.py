@@ -289,13 +289,23 @@ class GameTipper:
             home_tip_field, away_tip_field = tip_fields
 
             # Check if already tipped
-            if not Config.OVERWRITE_TIPS and self._is_already_tipped(home_tip_field, away_tip_field):
-                home_val = SeleniumUtils.safe_get_attribute(
-                    home_tip_field, 'value', 'home tip field') or ''
-                away_val = SeleniumUtils.safe_get_attribute(
-                    away_tip_field, 'value', 'away tip field') or ''
-                logger.info(f"Game already tipped: {home_val} - {away_val}")
-                return False
+            is_already_tipped = self._is_already_tipped(home_tip_field, away_tip_field)
+            
+            if is_already_tipped:
+                if Config.OVERWRITE_TIPS:
+                    # Unlock the fields so we can overwrite
+                    logger.info(f"Game already tipped, but OVERWRITE_TIPS=true. Unlocking fields to allow modification...")
+                    if not self._unlock_tip_fields(home_tip_field, away_tip_field):
+                        logger.error(f"Could not unlock tip fields, skipping game")
+                        return False
+                else:
+                    # Skip this game (don't overwrite)
+                    home_val = SeleniumUtils.safe_get_attribute(
+                        home_tip_field, 'value', 'home tip field') or ''
+                    away_val = SeleniumUtils.safe_get_attribute(
+                        away_tip_field, 'value', 'away tip field') or ''
+                    logger.info(f"Game already tipped: {home_val} - {away_val}")
+                    return False
 
             # Check timing constraints
             if not self._should_tip_game(game_time):
@@ -346,6 +356,29 @@ class GameTipper:
             away_field, 'value', 'away tip field') or ''
         return bool(home_value and away_value)
 
+    def _unlock_tip_fields(self, home_field, away_field) -> bool:
+        """
+        Unlock tip fields if they are disabled (happens when already tipped).
+        Required for OVERWRITE_TIPS=true to work.
+        
+        Returns:
+            True if unlocking succeeded or fields were already unlocked, False otherwise
+        """
+        try:
+            # Remove 'disabled' attribute if present
+            self.driver.execute_script("arguments[0].disabled = false;", home_field)
+            self.driver.execute_script("arguments[0].disabled = false;", away_field)
+            
+            # Also clear 'readonly' attribute if present
+            self.driver.execute_script("arguments[0].removeAttribute('readonly');", home_field)
+            self.driver.execute_script("arguments[0].removeAttribute('readonly');", away_field)
+            
+            logger.debug("Tip fields unlocked for modification")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to unlock tip fields: {e}")
+            return False
+
     def _should_tip_game(self, game_time: datetime) -> bool:
         """Check if the game should be tipped based on timing."""
         time_until_game = game_time - datetime.now(ZoneInfo('Europe/Berlin'))
@@ -363,23 +396,35 @@ class GameTipper:
     def _enter_tip(self, home_field, away_field, tip: tuple) -> bool:
         """
         Enter the calculated tip into the form fields.
+        If fields are disabled (already tipped), attempt to clear and set via JavaScript.
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Enter home team tip
-            if not SeleniumUtils.safe_send_keys(home_field, str(tip[0]), "home tip field"):
-                logger.error("Failed to enter home team tip")
+            # Try standard send_keys first
+            home_success = SeleniumUtils.safe_send_keys(home_field, str(tip[0]), "home tip field")
+            away_success = SeleniumUtils.safe_send_keys(away_field, str(tip[1]), "away tip field")
+            
+            if home_success and away_success:
+                logger.info(f"Successfully entered tip: {tip[0]} - {tip[1]}")
+                return True
+            
+            # If standard approach failed, try JavaScript (for disabled/readonly fields)
+            logger.debug("Standard send_keys failed, attempting JavaScript injection...")
+            try:
+                self.driver.execute_script(f"arguments[0].value = '{tip[0]}';", home_field)
+                self.driver.execute_script(f"arguments[1].value = '{tip[1]}';", away_field)
+                
+                # Trigger change events to notify form
+                self.driver.execute_script("arguments[0].dispatchEvent(new Event('change', {{ bubbles: true }}));", home_field)
+                self.driver.execute_script("arguments[0].dispatchEvent(new Event('change', {{ bubbles: true }}));", away_field)
+                
+                logger.info(f"Successfully entered tip via JavaScript: {tip[0]} - {tip[1]}")
+                return True
+            except Exception as js_e:
+                logger.error(f"JavaScript injection also failed: {js_e}")
                 return False
-
-            # Enter away team tip
-            if not SeleniumUtils.safe_send_keys(away_field, str(tip[1]), "away tip field"):
-                logger.error("Failed to enter away team tip")
-                return False
-
-            logger.info(f"Successfully entered tip: {tip[0]} - {tip[1]}")
-            return True
 
         except Exception as e:
             logger.error(f"Unexpected error entering tip: {e}")
