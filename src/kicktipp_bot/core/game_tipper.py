@@ -115,10 +115,6 @@ class GameTipper:
                 # Accept terms and conditions if they appear on the tipping page
                 self._accept_terms_and_conditions()
 
-                # Capture a screenshot for debugging after the tipping grid is loaded
-                screenshot_name = f"debug-{day_index if day_index is not None else 'default'}.png"
-                self._save_debug_screenshot(screenshot_name)
-
                 # Get the number of games available
                 games_count = self._get_games_count()
                 if games_count == 0:
@@ -163,17 +159,6 @@ class GameTipper:
         self.processed_count = 0
         self.game_number = 0
         logger.debug("Reset processing state")
-
-    def _save_debug_screenshot(self, filename: str) -> None:
-        """Save a screenshot of the current page for headless debugging."""
-        try:
-            screenshot_path = Path.cwd() / filename
-            if self.driver.save_screenshot(str(screenshot_path)):
-                logger.info(f"Saved debug screenshot to {screenshot_path}")
-            else:
-                logger.warning(f"Failed to save debug screenshot to {screenshot_path}")
-        except Exception as e:
-            logger.warning(f"Error capturing debug screenshot: {e}")
 
     def _update_last_seen_time(self, new_time: datetime, source: str) -> None:
         """Update the last seen time and log the change."""

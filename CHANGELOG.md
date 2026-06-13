@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 - **(matching)** Robust team-name normalization (accents removed) and bidirectional match search
 - **(flow)** Always submit a tip (fallback score when no odds) and add optional spieltagIndex range navigation (1-16)
 - **(notify)** Add JBProd push notifications + existing webhook support
-- **(dev)** Add debug screenshots, tests and `.env` configuration updates
+- **(dev)** Add tests, `.env` configuration updates, and remove debug screenshots (too memory-intensive for ARM)
 - **(webdriver)** Force use of local Chromium/Chromedriver binaries on Alpine/ARM64 (Selenium Manager workaround). `create_driver()` now uses `Service(executable_path=...)` and sets `options.binary_location` to `/usr/bin/chromium-browser`.
  - **(memory)** Optimize Chrome arguments for Docker/ARM64 (critical `--disable-dev-shm-usage`, `--single-process`, etc.) to prevent shared memory saturation and ReadTimeoutError on small systems.
 
