@@ -1,7 +1,9 @@
 """Game tipping module for handling the core betting logic."""
 
 import logging
+import os
 import re
+import requests
 import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -17,8 +19,43 @@ from ..models.game import Game
 from .notifications import NotificationManager
 from ..utils.selenium_utils import SeleniumUtils
 from .table_processors import TimeExtractor, TableRowProcessor, GameDataExtractor
+from .odds_api import OddsAPI
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def send_jbprod_notification(equipe_a, equipe_b, cote_a, cote_b, score_a, score_b):
+    """Envoie une notification push via l'API JBProd"""
+    api_token = os.environ.get('JBPROD_API_TOKEN')
+    if not api_token:
+        logging.warning("JBPROD_API_TOKEN manquant dans les variables d'environnement. Notification ignorée.")
+        return
+
+    url = 'https://push.jbprod.fr/send_notification.php'
+    
+    # Formatage sécurisé au cas où les cotes sont absentes (fallback)
+    str_cote_a = str(cote_a) if cote_a else "N/A"
+    str_cote_b = str(cote_b) if cote_b else "N/A"
+
+    data = {
+        'title': f'Kicktipp effectué : {equipe_a} vs {equipe_b}',
+        'body': f'{equipe_a} ({str_cote_a}) {score_a} - {score_b} ({str_cote_b}) {equipe_b}'
+    }
+
+    headers = {
+        'Content-Type': 'application/json',
+        'X-Api-Token': api_token
+    }
+
+    try:
+        response = requests.post(url, json=data, headers=headers, timeout=10)
+        if response.status_code == 200:
+            logging.info("Notification push envoyée avec succès !")
+        else:
+            logging.error(f"Échec de la notification push : {response.status_code} - {response.text}")
+    except Exception as e:
+        logging.error(f"Erreur lors de l'envoi de la notification push : {str(e)}")
 
 
 class GameTippingError(Exception):
@@ -43,37 +80,65 @@ class GameTipper:
         logger.info("Starting game tipping process")
 
         try:
-            # Navigate to tipping page
-            logger.debug("Navigating to tipping page")
-            self.driver.get(Config.get_tipp_url())
+            # Determine the range of days to process
+            if Config.SPIELTAG_INDEX_START is not None and Config.SPIELTAG_INDEX_END is not None:
+                start_day = Config.SPIELTAG_INDEX_START
+                end_day = Config.SPIELTAG_INDEX_END
+                if start_day > end_day:
+                    logger.warning(
+                        f"KICKTIPP_SPIELTAG_INDEX_START ({start_day}) > KICKTIPP_SPIELTAG_INDEX_END ({end_day}), swapping values"
+                    )
+                    start_day, end_day = end_day, start_day
+                day_indices = range(start_day, end_day + 1)
+            elif Config.SPIELTAG_INDEX is not None:
+                day_indices = [Config.SPIELTAG_INDEX]
+            else:
+                day_indices = [None]
 
-            # Wait for page to load
-            if not SeleniumUtils.wait_for_page_load(self.driver):
-                raise GameTippingError("Tipping page failed to load")
+            total_processed = 0
+            for day_index in day_indices:
+                url = Config.get_tipp_url(day_index)
+                if day_index is not None:
+                    logger.info(f"Opening tipping page for spieltagIndex={day_index}")
+                else:
+                    logger.info("Opening tipping page")
 
-            # Additional wait for dynamic content
-            sleep(1)
+                self.driver.get(url)
 
-            # Accept terms and conditions if they appear on the tipping page
-            self._accept_terms_and_conditions()
+                # Wait for page to load
+                if not SeleniumUtils.wait_for_page_load(self.driver):
+                    raise GameTippingError("Tipping page failed to load")
 
-            # Get the number of games available
-            games_count = self._get_games_count()
-            if games_count == 0:
-                logger.warning("No games found to process - this could mean:")
-                logger.warning("  - No games are available for tipping")
-                logger.warning("  - Page structure has changed")
-                logger.warning("  - Terms dialog is still blocking content")
-                return
+                # Additional wait for dynamic content
+                sleep(1)
 
-            logger.info(f"Found {games_count} games to process")
+                # Accept terms and conditions if they appear on the tipping page
+                self._accept_terms_and_conditions()
 
-            # Process games using sequential row processing approach
-            self._reset_state()
-            self._process_all_table_rows()
+                # Capture a screenshot for debugging after the tipping grid is loaded
+                screenshot_name = f"debug-{day_index if day_index is not None else 'default'}.png"
+                self._save_debug_screenshot(screenshot_name)
 
-            # Submit all tips (button should always be clickable)
-            self._submit_all_tips()
+                # Get the number of games available
+                games_count = self._get_games_count()
+                if games_count == 0:
+                    logger.warning("No games found to process - this could mean:")
+                    logger.warning("  - No games are available for tipping")
+                    logger.warning("  - Page structure has changed")
+                    logger.warning("  - Terms dialog is still blocking content")
+                    continue
+
+                logger.info(f"Found {games_count} games to process")
+
+                # Process games using sequential row processing approach
+                self._reset_state()
+                self._process_all_table_rows()
+                total_processed += self.processed_count
+
+                # Submit all tips for this day
+                self._submit_all_tips()
+
+            logger.info(f"Processed {total_processed} games successfully")
 
             # Debug mode sleep
             if self._is_debug_mode() and Config.RUN_EVERY_X_MINUTES != 0:
@@ -98,6 +163,17 @@ class GameTipper:
         self.processed_count = 0
         self.game_number = 0
         logger.debug("Reset processing state")
+
+    def _save_debug_screenshot(self, filename: str) -> None:
+        """Save a screenshot of the current page for headless debugging."""
+        try:
+            screenshot_path = Path.cwd() / filename
+            if self.driver.save_screenshot(str(screenshot_path)):
+                logger.info(f"Saved debug screenshot to {screenshot_path}")
+            else:
+                logger.warning(f"Failed to save debug screenshot to {screenshot_path}")
+        except Exception as e:
+            logger.warning(f"Error capturing debug screenshot: {e}")
 
     def _update_last_seen_time(self, new_time: datetime, source: str) -> None:
         """Update the last seen time and log the change."""
@@ -240,29 +316,34 @@ class GameTipper:
             if not self._should_tip_game(game_time):
                 return False
 
-            # Extract quotes using the new extractor
-            quotes = GameDataExtractor.extract_quotes(data_row)
-            if not quotes:
-                logger.warning(
-                    f"Could not extract quotes for game {game_number}")
-                return False
-
-            logger.debug(f"Quotes: {quotes}")
-
-            # Create game and calculate tip
-            game = Game(home_team, away_team, quotes, game_time)
-            tip = game.calculate_tip()
-            logger.info(f"Calculated tip: {tip[0]} - {tip[1]}")
+            # Use OddsAPI single-request flow to get a tip (strict fallback to (2,1))
+            try:
+                tip, quotes = OddsAPI.get_score(home_team, away_team)
+                logger.info(f"Using tip from Odds API for game {game_number}: {tip[0]} - {tip[1]}")
+            except Exception as e:
+                logger.warning(f"Odds API error for {home_team} vs {away_team}: {e}; using fallback tip")
+                tip = (2, 1)
+                quotes = None
 
             # Enter tip and send notifications
             if self._enter_tip(home_tip_field, away_tip_field, tip):
                 try:
                     self.notification_manager.send_all_notifications(
-                        game_time, home_team, away_team, quotes, tip
+                        game_time, home_team, away_team, quotes or GameDataExtractor.FALLBACK_QUOTES, tip
                     )
                 except Exception as e:
                     logger.warning(
                         f"Failed to send notifications for game {game_number}: {e}")
+
+                # Send JBProd notification for every successfully entered tip
+                send_jbprod_notification(
+                    home_team,
+                    away_team,
+                    quotes[0] if quotes else None,
+                    quotes[2] if quotes else None,
+                    tip[0],
+                    tip[1]
+                )
                 return True
             else:
                 logger.error(f"Failed to enter tip for game {game_number}")
@@ -370,12 +451,15 @@ class GameTipper:
         logger.debug("Checking for terms and conditions dialog")
 
         # Look for SourcePoint iframe (where the terms dialog actually is)
-        iframe = SeleniumUtils.safe_find_element(
-            self.driver,
-            By.CSS_SELECTOR,
-            'iframe[id*="sp_message_iframe"]',
-            timeout=3
-        )
+        try:
+            iframes = self.driver.find_elements(
+                By.CSS_SELECTOR, 'iframe[id*="sp_message_iframe"]'
+            )
+        except Exception as e:
+            logger.debug(f"Error searching for terms iframe: {e}")
+            iframes = []
+
+        iframe = iframes[0] if iframes else None
 
         if iframe:
             try:
@@ -386,7 +470,7 @@ class GameTipper:
                 accept_button = SeleniumUtils.safe_find_element(
                     self.driver,
                     By.XPATH,
-                    '//button[contains(text(), "Akzeptieren")]',
+                    '//button[contains(text(), "Akzeptieren") or contains(text(), "Accepter")]',
                     timeout=2
                 )
 

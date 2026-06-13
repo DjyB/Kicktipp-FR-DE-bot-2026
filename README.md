@@ -1,5 +1,8 @@
 # kicktipp-bot
 
+Version: 2026.0.0 — forked and updated (2026)
+Forked from the original project by antonengelhardt (https://github.com/antonengelhardt).
+
 This script can automatically enter tips into Kicktipp based on the quotes of the bookmakers. It is written in Python and uses Selenium to interact with the website.
 
 If you are enjoying this project, consider [buying me a coffee](https://buymeacoffee.com/antonengelhardt) :)
@@ -7,6 +10,21 @@ If you are enjoying this project, consider [buying me a coffee](https://buymeaco
 ## Run
 
 Copy the contents of the `.env.example` file into a new file called `.env` and fill in the values.
+
+## Running on Alpine / ARM64 (e.g. Orange Pi)
+
+If you run the bot on Alpine Linux on ARM64, Selenium Manager may fail to download a compatible driver (`Unsupported platform/architecture combination: linux/aarch64`). This project forces the use of system-installed Chromium and Chromedriver binaries to work around that.
+
+- Ensure `chromium` and `chromium-chromedriver` are installed in the container and that the binaries are available, for example at `/usr/bin/chromium-browser` and `/usr/bin/chromedriver`.
+- If your distribution installs binaries at different paths, set `CHROMEDRIVER_PATH` in your `.env` to the full driver path.
+- The code forces `options.binary_location = '/usr/bin/chromium-browser'` and uses `Service(executable_path='/usr/bin/chromedriver')` by default; adjust if your paths differ.
+
+Example Dockerfile snippet (Alpine):
+
+```dockerfile
+RUN apk add --no-cache chromium chromium-chromedriver
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+```
 
 ### Python
 

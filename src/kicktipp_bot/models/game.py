@@ -54,37 +54,53 @@ class Game:
         Returns:
             Tuple of (home_goals, away_goals) prediction
         """
-        if home_quote is None:
-            home_quote = self._validated_quotes[0]
-        if away_quote is None:
-            away_quote = self._validated_quotes[2]
+        try:
+            if home_quote is None:
+                home_q = float(self._validated_quotes[0])
+            else:
+                home_q = float(home_quote)
+            if away_quote is None:
+                away_q = float(self._validated_quotes[2])
+            else:
+                away_q = float(away_quote)
+            draw_q = float(self._validated_quotes[1])
 
-        # Calculate quote difference (negative = home team more likely to win)
-        quote_difference = home_quote - away_quote
+            # Determine favorite (lowest price)
+            prices = {'home': home_q, 'draw': draw_q, 'away': away_q}
+            fav = min(prices, key=prices.get)
 
-        # Add randomness for more realistic scores
-        random_goal = random.randint(0, 1)
+            # If draw is the favourite or very close, predict a draw
+            if fav == 'draw' or abs(draw_q - min(home_q, away_q)) <= 0.05:
+                return (1, 1)
 
-        # Adjust coefficient based on how unequal the match is
-        # Lower coefficient for very unequal games to avoid extreme scores
-        coefficient = 0.3 if abs(quote_difference) > 7 else 0.75
-
-        # Calculate tips based on quote difference
-        if abs(quote_difference) < 0.25:
-            # Very close match - predict draw-like result
-            return random_goal, random_goal
-        elif quote_difference < 0:
-            # Home team favored
-            home_goals = max(
-                0, round(-quote_difference * coefficient)) + random_goal
-            away_goals = random_goal
-            return home_goals, away_goals
-        else:
-            # Away team favored
-            home_goals = random_goal
-            away_goals = max(
-                0, round(quote_difference * coefficient)) + random_goal
-            return home_goals, away_goals
+            # Favorite is a team
+            if fav == 'home':
+                fav_q = home_q
+                opp_q = away_q
+                # ratio of opponent price to favourite price
+                ratio = opp_q / fav_q if fav_q > 0 else 1
+                if ratio >= 5:
+                    return (3, 0)
+                if ratio >= 2.5:
+                    return (2, 0)
+                if ratio >= 1.5:
+                    return random.choice([(2, 1), (1, 0)])
+                return random.choice([(2, 1), (1, 1)])
+            else:
+                # away favourite
+                fav_q = away_q
+                opp_q = home_q
+                ratio = opp_q / fav_q if fav_q > 0 else 1
+                if ratio >= 5:
+                    return (0, 3)
+                if ratio >= 2.5:
+                    return (0, 2)
+                if ratio >= 1.5:
+                    return random.choice([(1, 2), (0, 1)])
+                return random.choice([(1, 2), (1, 1)])
+        except Exception:
+            # On any parsing or unexpected error, return safe fallback
+            return (2, 1)
 
     def __str__(self) -> str:
         """String representation of the game."""

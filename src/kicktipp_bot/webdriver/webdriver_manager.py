@@ -6,6 +6,7 @@ import sys
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.chrome.service import Service
 
 from ..config import Config
 
@@ -18,18 +19,19 @@ class WebDriverManager:
     @staticmethod
     def create_driver() -> WebDriver:
         """Create and configure a WebDriver instance based on arguments and configuration."""
-        # Check for custom chrome driver path
-        if Config.CHROMEDRIVER_PATH is not None:
-            logger.info('Using custom Chrome Driver path')
-            return webdriver.Chrome(Config.CHROMEDRIVER_PATH)
-
-        # Check for headless mode
+        # Build options (headless or not) and force local binary paths
         if WebDriverManager._is_headless_mode():
             logger.info('Running in headless mode')
-            return webdriver.Chrome(options=WebDriverManager._get_headless_options())
+            options = WebDriverManager._get_headless_options()
+        else:
+            options = WebDriverManager._get_default_options()
 
-        # Default mode
-        return webdriver.Chrome()
+        # Prefer explicit CHROMEDRIVER_PATH when provided, otherwise use system path
+        driver_path = Config.CHROMEDRIVER_PATH or '/usr/bin/chromedriver'
+        logger.info('Using chromedriver executable: %s', driver_path)
+        service = Service(executable_path=driver_path)
+
+        return webdriver.Chrome(service=service, options=options)
 
     @staticmethod
     def _is_headless_mode() -> bool:
@@ -48,4 +50,15 @@ class WebDriverManager:
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-setuid-sandbox")
 
+        # Force use of local Chromium binary on systems where Selenium Manager fails
+        chrome_options.binary_location = '/usr/bin/chromium-browser'
+
         return chrome_options
+
+    @staticmethod
+    def _get_default_options() -> Options:
+        """Configure Chrome options for non-headless browser operation."""
+        options = Options()
+        # Force use of local Chromium binary
+        options.binary_location = '/usr/bin/chromium-browser'
+        return options

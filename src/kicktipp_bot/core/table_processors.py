@@ -103,12 +103,21 @@ class TimeExtractor:
     @staticmethod
     def _parse_time_string(time_text: str) -> datetime:
         """Parse time string into Europe/Berlin aware datetime object using zoneinfo."""
-        try:
-            naive_dt = datetime.strptime(time_text, '%d.%m.%y %H:%M')
-            return naive_dt.replace(tzinfo=ZoneInfo('Europe/Berlin'))
-        except ValueError as e:
-            logger.warning(f"Could not parse time '{time_text}': {e}")
-            return datetime.now(tz=ZoneInfo('Europe/Berlin'))
+        supported_formats = [
+            '%d.%m.%y %H:%M',
+            '%d/%m/%y %H:%M',
+        ]
+        for time_format in supported_formats:
+            try:
+                naive_dt = datetime.strptime(time_text, time_format)
+                return naive_dt.replace(tzinfo=ZoneInfo('Europe/Berlin'))
+            except ValueError:
+                continue
+
+        logger.warning(
+            f"Could not parse time '{time_text}' using supported formats: {supported_formats}"
+        )
+        return datetime.now(tz=ZoneInfo('Europe/Berlin'))
 
 
 class TableRowProcessor:
@@ -151,10 +160,16 @@ class TableRowProcessor:
 
 class GameDataExtractor:
     """Handles extraction of game-specific data from table rows."""
+
+    FALLBACK_QUOTES = ['2.00', '3.30', '3.80']
     
     # XPath selectors for quote extraction
-    XPATH_QUOTE_ANCHOR = './/a[contains(@class, "quote")]'
-    XPATH_QUOTE_SPAN = ".//span[contains(@class, 'quote')][span[contains(@class,'quote-label')] and span[contains(@class,'quote-text')]]"
+    XPATH_QUOTE_ANCHOR = './/a[contains(@class, "quote") or contains(@class, "cote")]'
+    XPATH_QUOTE_SPAN = (
+        ".//span[(contains(@class, 'quote') or contains(@class, 'cote'))]"
+        "[span[(contains(@class,'quote-label') or contains(@class,'cote-label'))] "
+        "and span[(contains(@class,'quote-text') or contains(@class,'cote-text'))]]"
+    )
 
     @staticmethod
     def extract_team_name(data_row, column_index: int, team_type: str) -> Optional[str]:
@@ -205,14 +220,14 @@ class GameDataExtractor:
             container = SeleniumUtils.safe_find_element(
                 game_row,
                 By.XPATH,
-                './/div[contains(@class, "tippabgabe-quoten")]'
+                './/div[contains(@class, "tippabgabe-quoten") or contains(@class, "tippabgabe-cotes")]'
             )
             if not container:
-                # fallback: sometimes quotes are inside td.quoten
+                # fallback: sometimes quotes are inside td.quoten or td.cotes
                 container = SeleniumUtils.safe_find_element(
                     game_row,
                     By.XPATH,
-                    './/td[contains(@class, "quoten")]'
+                    './/td[contains(@class, "quoten") or contains(@class, "cotes")]'
                 )
 
             if container:
@@ -238,10 +253,14 @@ class GameDataExtractor:
                     pairs = []
                     for idx, quote_element in enumerate(quote_elements):
                         label_el = SeleniumUtils.safe_find_element(
-                            quote_element, By.XPATH, './/span[contains(@class, "quote-label")]'
+                            quote_element,
+                            By.XPATH,
+                            './/span[contains(@class, "quote-label") or contains(@class, "cote-label")]'
                         )
                         text_el = SeleniumUtils.safe_find_element(
-                            quote_element, By.XPATH, './/span[contains(@class, "quote-text")]'
+                            quote_element,
+                            By.XPATH,
+                            './/span[contains(@class, "quote-text") or contains(@class, "cote-text")]'
                         )
                         label = SeleniumUtils.safe_get_text(label_el, 'quote label') if label_el else None
                         value = SeleniumUtils.safe_get_text(text_el, 'quote text') if text_el else None
@@ -270,14 +289,19 @@ class GameDataExtractor:
         # --- Legacy fallback ---
         try:
             quotes_element = SeleniumUtils.safe_find_element(
-                game_row, By.XPATH, './/a[contains(@class, "quote-link")]'
+                game_row,
+                By.XPATH,
+                './/a[contains(@class, "quote-link") or contains(@class, "cote-link")]'
             )
             if quotes_element:
                 quotes_raw = SeleniumUtils.safe_get_text(quotes_element, 'quotes element')
                 logger.debug(f"Legacy quotes element text: '{quotes_raw}'")
                 
                 if quotes_raw:
-                    txt = quotes_raw.replace("Quote: ", "").strip()
+                    txt = quotes_raw
+                    for prefix in ["Quote: ", "Quote:", "Cote: ", "Cote:", "Côte: ", "Côte:"]:
+                        txt = txt.replace(prefix, "")
+                    txt = txt.strip()
                     if " / " in txt:
                         parts = [p.strip() for p in txt.split(" / ")]
                     elif " | " in txt:
@@ -316,4 +340,7 @@ class GameDataExtractor:
             "  - Page structure has changed\n"
             "  - Network connectivity issues"
         )
-        return None
+        logger.info(
+            f"Using fallback quotes: {GameDataExtractor.FALLBACK_QUOTES}"
+        )
+        return GameDataExtractor.FALLBACK_QUOTES

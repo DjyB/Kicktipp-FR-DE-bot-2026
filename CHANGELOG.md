@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026.0.0] - 2026-06-13
+
+### 🚀 Release: Version 2026
+
+- **(localisation)** Switch project to Kicktipp France (.fr) and update selectors
+- **(time)** Improve date parsing to support `'%d.%m.%y %H:%M'` and `'%d/%m/%y %H:%M'` and use Europe/Berlin tz
+- **(cookies)** Accept cookie dialog in French/German
+- **(odds)** Integrate The-Odds-API for h2h quotes (single exact endpoint, FR region) with explicit FR→EN mapping and strict fallback
+- **(matching)** Robust team-name normalization (accents removed) and bidirectional match search
+- **(flow)** Always submit a tip (fallback score when no odds) and add optional spieltagIndex range navigation (1-16)
+- **(notify)** Add JBProd push notifications + existing webhook support
+- **(dev)** Add debug screenshots, tests and `.env` configuration updates
+- **(webdriver)** Force use of local Chromium/Chromedriver binaries on Alpine/ARM64 (Selenium Manager workaround). `create_driver()` now uses `Service(executable_path=...)` and sets `options.binary_location` to `/usr/bin/chromium-browser`.
+
+
 ## [3.3.0] - 2026-03-30
 
 ### ⚙️ Miscellaneous Tasks
