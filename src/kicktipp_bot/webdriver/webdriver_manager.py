@@ -45,12 +45,13 @@ class WebDriverManager:
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")  # CRUCIAL: Prevents shared memory saturation in Docker
-        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-extensions")  # Reduce memory footprint
         chrome_options.add_argument("--disable-application-cache")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-software-rasterizer")  # Optimize for low-memory systems
         chrome_options.add_argument("--disable-setuid-sandbox")
-        chrome_options.add_argument("--single-process")  # Optional but useful on small architectures (ARM64)
+        chrome_options.add_argument("--remote-debugging-port=9222")  # CRUCIAL: Maintain DevTools communication with Selenium
+        chrome_options.add_argument("--window-size=1920,1080")  # Force window size to prevent crashes
 
         # Force use of local Chromium binary on systems where Selenium Manager fails
         chrome_options.binary_location = '/usr/bin/chromium-browser'
@@ -64,9 +65,11 @@ class WebDriverManager:
         # Optimize for low-memory systems (Docker/ARM64)
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")  # CRUCIAL: Prevents shared memory saturation in Docker
+        options.add_argument("--disable-extensions")  # Reduce memory footprint
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-software-rasterizer")  # Optimize for low-memory systems
-        options.add_argument("--single-process")  # Optional but useful on small architectures (ARM64)
+        options.add_argument("--remote-debugging-port=9222")  # CRUCIAL: Maintain DevTools communication with Selenium
+        options.add_argument("--window-size=1920,1080")  # Force window size to prevent crashes
         # Force use of local Chromium binary
         options.binary_location = '/usr/bin/chromium-browser'
         return options

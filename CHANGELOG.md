@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - **(dev)** Add tests, `.env` configuration updates, and remove debug screenshots (too memory-intensive for ARM)
 - **(webdriver)** Force use of local Chromium/Chromedriver binaries on Alpine/ARM64 (Selenium Manager workaround). `create_driver()` now uses `Service(executable_path=...)` and sets `options.binary_location` to `/usr/bin/chromium-browser`.
  - **(memory)** Optimize Chrome arguments for Docker/ARM64 (critical `--disable-dev-shm-usage`, `--single-process`, etc.) to prevent shared memory saturation and ReadTimeoutError on small systems.
+- **(stability)** Fix `disconnected: not connected to DevTools` error by removing unstable `--single-process`, adding `--remote-debugging-port=9222` and `--window-size=1920,1080` for Alpine/ARM64 stability.
 
 ### ⚙️ Miscellaneous Tasks
 
