@@ -1,4 +1,4 @@
 selenium>=4.21.0
-requests>=2.25.1
+requests>=2.34.2
 sentry_sdk>=2.35.0
 pytest>=7.0.0
